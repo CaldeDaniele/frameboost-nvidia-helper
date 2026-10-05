@@ -8,12 +8,15 @@ import sea from 'node:sea';
 export const IS_SEA = sea.isSea();
 export const ROOT = IS_SEA ? path.dirname(process.execPath) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const CONFIG_FILE = path.join(ROOT, 'config.json');
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
 
 /** Where the installer puts everything (per user, no admin). */
 export const INSTALL_DIR = path.join(process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '.', 'AppData', 'Local'), 'FrameBoostNvidia');
 /** The Web Store extension; developer builds are added with --allow <id> / the wizard's advanced field. */
 export const STORE_EXTENSION_ID = 'cklkjjeejomlkelkjmgdpahgpcjigahb';
+// The sideloaded beta build of the extension (fixed `key` in its manifest, so the id is the same on every PC).
+export const BETA_EXTENSION_ID = 'cbegkkeabpgnnhgnfeoapkmndionifkb';
+export const DEFAULT_EXTENSION_IDS = [STORE_EXTENSION_ID, BETA_EXTENSION_ID];
 
 // No look-alike characters (0/O, 1/I): the token is typed or pasted by a person.
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -51,6 +54,6 @@ export function loadConfig({ ensureToken = false } = {}) {
     maxSessions: cfg.maxSessions || 2,
     encoder: process.env.FB_ENCODER || cfg.encoder || 'x264',   // 'x264' (default) | 'nvenc'
     // Extension IDs the native host manifest allows (the installer writes them, see registry.mjs).
-    allowedExtensionIds: cfg.allowedExtensionIds || [STORE_EXTENSION_ID],
+    allowedExtensionIds: cfg.allowedExtensionIds || DEFAULT_EXTENSION_IDS,
   };
 }

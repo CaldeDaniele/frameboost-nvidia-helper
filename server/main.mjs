@@ -41,9 +41,9 @@ async function main() {
   }
   if (has('--register')) {
     const { registerNativeHost } = await import('./lib/registry.mjs');
-    const { STORE_EXTENSION_ID } = await import('./lib/config.mjs');
+    const { DEFAULT_EXTENSION_IDS } = await import('./lib/config.mjs');
     const exe = IS_SEA ? process.execPath : path.resolve(process.argv[1]);
-    const r = registerNativeHost({ exePath: exe, allowedIds: [STORE_EXTENSION_ID, ...values('--allow')] });
+    const r = registerNativeHost({ exePath: exe, allowedIds: [...DEFAULT_EXTENSION_IDS, ...values('--allow')] });
     console.log(`registered for: ${r.registered.join(', ') || '(none)'}${r.failed.length ? `; failed: ${r.failed.join(', ')}` : ''}\nmanifest: ${r.manifest}`);
     return;
   }

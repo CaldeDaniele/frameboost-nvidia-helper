@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { INSTALL_DIR, IS_SEA, STORE_EXTENSION_ID, VERSION } from './config.mjs';
+import { INSTALL_DIR, IS_SEA, DEFAULT_EXTENSION_IDS, VERSION } from './config.mjs';
 import { getAsset } from './assets.mjs';
 import { registerNativeHost, unregisterNativeHost } from './registry.mjs';
 import { run } from './health.mjs';
@@ -52,7 +52,7 @@ export async function installHelper({ allowedIds = [], sdkRoot, ffmpegPath, onSt
   onStep('files', 'ok');
 
   onStep('config', 'running');
-  const ids = [...new Set([STORE_EXTENSION_ID, ...allowedIds])];
+  const ids = [...new Set([...DEFAULT_EXTENSION_IDS, ...allowedIds])];
   fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ version: VERSION, sdkRoot, ffmpeg: ffmpegPath, allowedExtensionIds: ids }, null, 2));
   onStep('config', 'ok');
 
