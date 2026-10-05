@@ -1,6 +1,6 @@
 {
   "name": "frameboost-nvidia-helper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Local helper that gives the FrameBoost browser extension NVIDIA Maxine Video Frame Generation",
   "type": "module",
@@ -8,10 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node server/live.mjs",
+    "start": "node server/main.mjs --serve",
     "build": "powershell -NoProfile -File scripts/build.ps1",
     "release": "powershell -NoProfile -File scripts/package-release.ps1",
-    "test:protocol": "node scripts/protocol-test.mjs"
+    "test:protocol": "node scripts/protocol-test.mjs",
+    "wizard": "node server/main.mjs",
+    "test:native": "node scripts/native-test.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

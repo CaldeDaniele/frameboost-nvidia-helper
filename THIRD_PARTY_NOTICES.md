@@ -53,14 +53,17 @@ VideoFrameGeneration effect are defined independently in `vfgpipe/vfg_params.h`;
 > COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 > OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-## Node.js runtime (MIT and others), inside `frameboost-helper.exe`
+## Node.js runtime (MIT and others), inside `FrameBoost-NVIDIA-Setup.exe` / `frameboost-helper.exe`
 
 The executable is a Node.js single-executable application: it embeds the Node.js runtime. Node.js is licensed under the
-MIT license with additional third-party notices; the full text is in `licenses/NODE_LICENSE.txt` in the release archive
-(also at <https://github.com/nodejs/node/blob/main/LICENSE>).
+MIT license with additional third-party notices; the full text is at <https://github.com/nodejs/node/blob/main/LICENSE>.
 
-## FFmpeg — NOT included
+## FFmpeg — NOT included, downloaded by the installer on request
 
-The helper calls an `ffmpeg` executable that the user installs separately (for example from <https://www.gyan.dev/ffmpeg/builds/>
-or `winget install Gyan.FFmpeg`). It is not part of this project's releases. FFmpeg builds with `libx264` are GPL-licensed:
-because the helper only starts `ffmpeg` as a separate process, that license applies to FFmpeg itself, not to this project.
+The helper calls an `ffmpeg` executable. It is not part of this project's releases. If FFmpeg is not found on the PC, the
+installer offers to download it **when the user clicks the button**: a `ffmpeg-release-essentials` build from
+<https://www.gyan.dev/ffmpeg/builds/> (checked against the SHA-256 published next to it; fallback: the `win64-gpl` build of
+<https://github.com/BtbN/FFmpeg-Builds>) and unpacks it into `%LOCALAPPDATA%\FrameBoostNvidiafmpeg\`, together with its
+own `LICENSE`. These builds include `libx264` and are GPL-licensed: because the helper only starts `ffmpeg` as a separate
+process, that license applies to FFmpeg itself, not to this project. Source code of the downloaded build is available from
+the sites above.

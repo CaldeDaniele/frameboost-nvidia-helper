@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FrameBoost NVIDIA · installer</title>
+<style>
+  :root { --bg:#0f1316; --card:#171c21; --line:#2a3138; --fg:#e8edf1; --dim:#98a4ae; --accent:#2dd4bf; --warn:#f0c05a; --err:#ff8a7e; --ok:#2dd4bf; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f4f6f8; --card:#fff; --line:#dde2e7; --fg:#15191d; --dim:#5d6a75; --accent:#0d9488; --warn:#8a5a00; --err:#b42318; --ok:#0d9488; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, "Segoe UI", sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:28px 18px 60px; display:grid; gap:14px; }
+  h1 { font-size:22px; margin:0; } h1 small { color:var(--dim); font-weight:400; font-size:13px; }
+  .lead { color:var(--dim); margin:2px 0 6px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .card.off { opacity:.55; }
+  .head { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .head h2 { font-size:16px; margin:0; flex:1; }
+  .badge { font-size:12px; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--dim); white-space:nowrap; }
+  .badge.ok { color:var(--ok); border-color:var(--ok); } .badge.err { color:var(--err); border-color:var(--err); } .badge.work { color:var(--warn); border-color:var(--warn); }
+  p { margin:6px 0; } .dim { color:var(--dim); font-size:13.5px; }
+  ol { margin:8px 0 8px 20px; padding:0; } li { margin:3px 0; }
+  button { font:inherit; border:0; border-radius:8px; padding:9px 16px; cursor:pointer; background:var(--accent); color:#04201c; font-weight:600; }
+  button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); font-weight:500; }
+  button:disabled { opacity:.45; cursor:default; }
+  .bar { height:8px; background:var(--line); border-radius:999px; overflow:hidden; margin:10px 0; }
+  .bar > div { height:100%; background:var(--accent); width:0; transition:width .3s; }
+  .bar.ind > div { width:35% !important; animation:slide 1.2s ease-in-out infinite; }
+  @keyframes slide { from { margin-left:-35%; } to { margin-left:100%; } }
+  .file { display:flex; gap:8px; align-items:center; margin:4px 0; font-size:14px; }
+  .file code { background:var(--bg); padding:1px 6px; border-radius:5px; }
+  .reasons { color:var(--err); margin:6px 0; } .reasons li { margin:2px 0; }
+  .steps { margin:8px 0 0; padding:0; list-style:none; } .steps li { display:flex; gap:8px; }
+  details { margin-top:10px; } summary { cursor:pointer; color:var(--dim); font-size:13.5px; }
+  input[type=text] { width:100%; font:13px ui-monospace, Consolas, monospace; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; }
+  .row { display:flex; gap:8px; } .row input { flex:1; }
+  .done { text-align:center; padding:22px 18px; } .done h2 { font-size:22px; margin:6px 0; color:var(--ok); }
+  a { color:var(--accent); } .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  .log { max-height:130px; overflow:auto; font:12px ui-monospace, Consolas, monospace; color:var(--dim); white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <div><h1>FrameBoost · NVIDIA Frame Generation <small id="ver"></small></h1><p class="lead" id="lead"></p></div>
+
+  <section class="card" id="c-system"><div class="head"><h2 id="t-system"></h2><span class="badge" id="b-system"></span></div><div id="d-system"></div></section>
+  <section class="card" id="c-ffmpeg"><div class="head"><h2 id="t-ffmpeg"></h2><span class="badge" id="b-ffmpeg"></span></div><div id="d-ffmpeg"></div></section>
+  <section class="card" id="c-sdk"><div class="head"><h2 id="t-sdk"></h2><span class="badge" id="b-sdk"></span></div><div id="d-sdk"></div></section>
+  <section class="card" id="c-install"><div class="head"><h2 id="t-install"></h2><span class="badge" id="b-install"></span></div><div id="d-install"></div></section>
+  <section class="card done" id="c-done" hidden></section>
+  <details><summary id="s-log"></summary><div class="log" id="log"></div></details>
+</main>
+<script>
+const K = new URLSearchParams(location.search).get('k');
+const IT = (navigator.language || 'en').toLowerCase().startsWith('it');
+const S = IT ? {
+  lead: 'Un\'installazione guidata, in pochi minuti. Non servono diritti di amministratore.',
+  system: 'Il tuo PC', ffmpeg: 'FFmpeg', sdk: 'Componenti NVIDIA', install: 'Installazione',
+  ok: 'Pronto', checking: 'Controllo…', missing: 'Da fare', working: 'In corso', problem: 'Problema', waiting: 'In attesa',
+  gpuOk: (g, d, c) => `${g} · driver ${d}${c ? ' · capacità ' + c : ''} — compatibile.`,
+  noGpu: 'Scheda video non compatibile.', recheck: 'Ricontrolla',
+  ffOk: (s) => s === 'path' ? 'FFmpeg è già installato sul PC: lo uso.' : 'FFmpeg installato.',
+  ffNeed: 'Serve FFmpeg (con codificatore H.264). Lo scarico dal sito ufficiale gyan.dev e ne verifico l\'impronta SHA-256. Circa 115 MB, licenza GPL.',
+  ffBtn: 'Scarica FFmpeg', ffDl: 'Scarico…', ffEx: 'Estraggo…', ffFail: 'Scaricamento non riuscito: ', retry: 'Riprova',
+  sdkOk: (v) => `Componenti NVIDIA presenti (SDK ${v}).`,
+  sdkIntro: 'NVIDIA richiede un account gratuito e l\'accettazione della sua licenza: questo passaggio lo fai tu, il resto è automatico.',
+  sdkSteps: ['Premi <b>Apri le pagine di NVIDIA</b> (si aprono due pagine).', 'Accedi o crea l\'account NVIDIA (gratuito) e accetta la licenza.', 'In ciascuna pagina scegli la versione indicata sotto, apri la scheda <b>File Browser</b>, premi <b>⋮</b> → <b>Download</b>.', 'Torna qui: i file in Download vengono riconosciuti da soli.'],
+  sdkOpen: 'Apri le pagine di NVIDIA', sdkFiles: 'File richiesti', f1: 'risorsa vfx_sdk_core, versione 1.3.0.0_windows (≈1 GB)', f2: 'modello nvvfxvideoframegeneration, versione 1.3.0.0_lib_windows (≈177 MB)',
+  found: 'trovato', downloading: 'in scaricamento…', notFound: 'non ancora trovato', extracting: 'Estraggo i componenti (circa un minuto)…',
+  otherFolder: 'Hai salvato i file in un\'altra cartella?', folderPh: 'C:\\percorso\\della\\cartella', add: 'Aggiungi',
+  installIntro: (d) => `Installo in ${d} (solo per il tuo utente) e collego l'helper al browser.`,
+  installBtn: 'Installa', installing: 'Installo…', adv: 'Avanzate: estensione sviluppatore', advHelp: 'ID di una build non pubblicata dell\'estensione (uno per riga), solo per sviluppatori.',
+  step: { files: 'Copio i file', config: 'Scrivo la configurazione', register: 'Collego al browser', check: 'Verifica finale' },
+  doneTitle: 'Fatto!', doneText: 'Torna alla pagina di configurazione dell\'estensione FrameBoost: riconosce l\'helper da sola e ti fa provare un video. Se non l\'hai aperta, apri FrameBoost dal browser → "Configura NVIDIA".',
+  registered: 'Collegato a: ', close: 'Chiudi l\'installer', uninstall: 'Disinstalla', confirmUn: 'Rimuovere FrameBoost NVIDIA dal PC?',
+  logT: 'Dettagli tecnici', needAll: 'Completa i passaggi sopra per poter installare.',
+} : {
+  lead: 'A guided install that takes a few minutes. No administrator rights needed.',
+  system: 'Your PC', ffmpeg: 'FFmpeg', sdk: 'NVIDIA components', install: 'Installation',
+  ok: 'Ready', checking: 'Checking…', missing: 'To do', working: 'Working', problem: 'Problem', waiting: 'Waiting',
+  gpuOk: (g, d, c) => `${g} · driver ${d}${c ? ' · compute ' + c : ''} — compatible.`,
+  noGpu: 'This graphics card is not compatible.', recheck: 'Check again',
+  ffOk: (s) => s === 'path' ? 'FFmpeg is already on this PC: using it.' : 'FFmpeg installed.',
+  ffNeed: 'FFmpeg (with an H.264 encoder) is required. I download it from the official site gyan.dev and verify its SHA-256 checksum. About 115 MB, GPL license.',
+  ffBtn: 'Download FFmpeg', ffDl: 'Downloading…', ffEx: 'Extracting…', ffFail: 'Download failed: ', retry: 'Try again',
+  sdkOk: (v) => `NVIDIA components found (SDK ${v}).`,
+  sdkIntro: 'NVIDIA requires a free account and acceptance of its license: you do this part, the rest is automatic.',
+  sdkSteps: ['Click <b>Open the NVIDIA pages</b> (two pages open).', 'Sign in or create your NVIDIA account (free) and accept the license.', 'On each page pick the version shown below, open the <b>File Browser</b> tab, click <b>⋮</b> → <b>Download</b>.', 'Come back here: the files in your Downloads folder are detected automatically.'],
+  sdkOpen: 'Open the NVIDIA pages', sdkFiles: 'Required files', f1: 'resource vfx_sdk_core, version 1.3.0.0_windows (≈1 GB)', f2: 'model nvvfxvideoframegeneration, version 1.3.0.0_lib_windows (≈177 MB)',
+  found: 'found', downloading: 'still downloading…', notFound: 'not found yet', extracting: 'Extracting the components (about a minute)…',
+  otherFolder: 'Saved the files in another folder?', folderPh: 'C:\\path\\to\\folder', add: 'Add',
+  installIntro: (d) => `I install into ${d} (this user only) and connect the helper to your browser.`,
+  installBtn: 'Install', installing: 'Installing…', adv: 'Advanced: developer extension', advHelp: 'IDs of an unpublished build of the extension (one per line), for developers only.',
+  step: { files: 'Copying files', config: 'Writing the configuration', register: 'Connecting to the browser', check: 'Final check' },
+  doneTitle: 'Done!', doneText: 'Go back to the FrameBoost extension setup page: it detects the helper by itself and lets you try a video. If it is not open, open FrameBoost in your browser → "Set up NVIDIA".',
+  registered: 'Connected to: ', close: 'Close the installer', uninstall: 'Uninstall', confirmUn: 'Remove FrameBoost NVIDIA from this PC?',
+  logT: 'Technical details', needAll: 'Complete the steps above to install.',
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const mb = (n) => (n / 1048576).toFixed(0) + ' MB';
+async function api(path, body) {
+  const r = await fetch(path + (path.includes('?') ? '&' : '?') + 'k=' + K, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status); return j;
+}
+function badge(id, kind, text) { const b = $('b-' + id); b.className = 'badge ' + kind; b.textContent = text; }
+document.title = 'FrameBoost NVIDIA · ' + (IT ? 'installazione' : 'installer');
+$('lead').textContent = S.lead; $('s-log').textContent = S.logT;
+for (const id of ['system', 'ffmpeg', 'sdk', 'install']) $('t-' + id).textContent = S[id];
+let advText = '';   // keep the textarea content across re-renders
+let folderText = '';
+
+function render(st) {
+  $('ver').textContent = 'v' + st.version;
+  // 1 system
+  const sy = st.system;
+  if (sy.status === 'running') { badge('system', 'work', S.checking); $('d-system').innerHTML = ''; }
+  else if (sy.ok) { badge('system', 'ok', S.ok); $('d-system').innerHTML = `<p>${esc(S.gpuOk(sy.gpu, sy.driver, sy.computeCap))}</p>`; }
+  else { badge('system', 'err', S.problem); $('d-system').innerHTML = `<p>${esc(sy.gpu || S.noGpu)}</p><ul class="reasons">${sy.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul><button class="ghost" onclick="api('/api/recheck',{})">${S.recheck}</button>`; }
+  // 2 ffmpeg
+  const f = st.ffmpeg;
+  if (f.status === 'ok') { badge('ffmpeg', 'ok', S.ok); $('d-ffmpeg').innerHTML = `<p class="dim">${esc(S.ffOk(f.source))}</p>`; }
+  else if (f.status === 'downloading' || f.status === 'extracting') {
+    badge('ffmpeg', 'work', S.working);
+    const pct = f.total ? Math.round(100 * f.received / f.total) : 0;
+    $('d-ffmpeg').innerHTML = `<p>${f.status === 'downloading' ? S.ffDl : S.ffEx} ${f.total ? mb(f.received) + ' / ' + mb(f.total) : ''}</p><div class="bar ${f.status === 'extracting' || !f.total ? 'ind' : ''}"><div style="width:${pct}%"></div></div>`;
+  } else {
+    badge('ffmpeg', f.status === 'failed' ? 'err' : '', f.status === 'failed' ? S.problem : S.missing);
+    $('d-ffmpeg').innerHTML = `<p class="dim">${S.ffNeed}</p>${f.error ? `<p class="reasons">${esc(S.ffFail + f.error)}</p>` : ''}<button onclick="api('/api/ffmpeg/download',{})">${f.status === 'failed' ? S.retry : S.ffBtn}</button>`;
+  }
+  // 3 sdk
+  const sd = st.sdk;
+  if (sd.status === 'ok') { badge('sdk', 'ok', S.ok); $('d-sdk').innerHTML = `<p class="dim">${esc(S.sdkOk(sd.version))}</p>`; }
+  else {
+    const extracting = sd.status === 'extracting';
+    badge('sdk', extracting ? 'work' : sd.status === 'failed' ? 'err' : '', extracting ? S.working : sd.status === 'failed' ? S.problem : S.waiting);
+    const fileRow = (info, label) => `<div class="file"><span>${info ? (info.complete ? '✅' : '⏳') : '⬜'}</span><span><code>${esc(label)}</code> — ${info ? (info.complete ? S.found + ' (' + mb(info.size) + ')' : S.downloading) : S.notFound}</span></div>`;
+    $('d-sdk').innerHTML = extracting
+      ? `<p>${S.extracting}</p><div class="bar ind"><div></div></div>`
+      : `<p class="dim">${S.sdkIntro}</p><ol class="dim">${S.sdkSteps.map((x) => `<li>${x}</li>`).join('')}</ol>
+         <button onclick="api('/api/sdk/open-ngc',{})">${S.sdkOpen}</button>
+         <p style="margin-top:12px"><b>${S.sdkFiles}</b></p>
+         ${fileRow(sd.core, 'VFXSDK_windows_1.3.0.0.zip')}<div class="dim" style="margin:-2px 0 6px 28px">${S.f1}</div>
+         ${fileRow(sd.feature, '1.3.0.0_lib_windows.zip')}<div class="dim" style="margin:-2px 0 6px 28px">${S.f2}</div>
+         ${sd.error ? `<p class="reasons">${esc(sd.error)}</p>` : ''}
+         <details><summary>${S.otherFolder}</summary><div class="row" style="margin-top:6px"><input type="text" id="folder" placeholder="${esc(S.folderPh)}" value="${esc(folderText)}" oninput="folderText=this.value"><button class="ghost" onclick="addFolder()">${S.add}</button></div></details>`;
+  }
+  // 4 install
+  const i = st.install;
+  const ready = sy.ok && f.status === 'ok' && sd.status === 'ok';
+  $('c-install').classList.toggle('off', !ready && i.status === 'idle');
+  if (i.status === 'ok') { badge('install', 'ok', S.ok); }
+  else if (i.status === 'running') badge('install', 'work', S.working);
+  else if (i.status === 'fail') badge('install', 'err', S.problem);
+  else badge('install', '', ready ? S.missing : S.waiting);
+  const steps = i.steps.length ? `<ul class="steps">${i.steps.map((s) => `<li>${s.status === 'ok' ? '✅' : s.status === 'fail' ? '❌' : '⏳'} ${esc(S.step[s.name] || s.name)}${s.detail ? ' <span class="dim">— ' + esc(s.detail) + '</span>' : ''}</li>`).join('')}</ul>` : '';
+  if (i.status !== 'ok') {
+    $('d-install').innerHTML = `<p class="dim">${esc(S.installIntro(st.installDir))}</p>${ready ? '' : `<p class="dim">${S.needAll}</p>`}
+      <button id="go" ${ready && i.status !== 'running' ? '' : 'disabled'} onclick="doInstall()">${i.status === 'running' ? S.installing : (i.status === 'fail' ? S.retry : S.installBtn)}</button>
+      ${i.error ? `<p class="reasons">${esc(i.error)}</p>` : ''}${steps}
+      <details><summary>${S.adv}</summary><p class="dim">${S.advHelp}</p><textarea id="adv" rows="2" style="width:100%;font:12px ui-monospace,Consolas,monospace;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px" oninput="advText=this.value">${esc(advText)}</textarea></details>`;
+  } else $('d-install').innerHTML = steps;
+  // done
+  const done = i.status === 'ok';
+  $('c-done').hidden = !done;
+  if (done) $('c-done').innerHTML = `<div style="font-size:42px">🎉</div><h2>${S.doneTitle}</h2><p>${S.doneText}</p><p class="dim">${S.registered}${esc(i.registered.join(', '))}</p>
+    <div class="actions" style="justify-content:center"><button onclick="api('/api/quit',{}).finally(()=>window.close())">${S.close}</button><button class="ghost" onclick="uninstall()">${S.uninstall}</button></div>`;
+  $('log').textContent = st.log.join('\n');
+}
+async function addFolder() { try { await api('/api/sdk/folder', { path: folderText }); folderText = ''; } catch (e) { alert(e.message); } }
+async function doInstall() { const ids = advText.split(/[\s,;]+/).filter(Boolean); try { await api('/api/install', { allowedIds: ids }); } catch (e) { alert(e.message); } }
+async function uninstall() { if (confirm(S.confirmUn)) { await api('/api/uninstall', {}).catch(() => {}); document.body.innerHTML = '<main><p>OK</p></main>'; } }
+
+let busy = false;
+async function poll() {
+  if (busy) return; busy = true;
+  try { render(await api('/api/state')); } catch (e) { $('lead').textContent = IT ? 'Installer non raggiungibile: la finestra dell\'installer è ancora aperta?' : 'Cannot reach the installer: is its window still open?'; }
+  busy = false;
+}
+setInterval(poll, 900); poll();
+</script>
+</body>
+</html>

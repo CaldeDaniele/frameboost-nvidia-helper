@@ -1,54 +1,78 @@
 # FrameBoost NVIDIA helper
 
 A small local program that gives the **FrameBoost** browser extension **NVIDIA Frame Generation**
-(Maxine Video Effects SDK, *Video Frame Generation*). You start it on your PC, FrameBoost sends it the video you are
-watching as H.264, it returns the generated in-between frames, and FrameBoost shows them in real time:
-YouTube at 24 fps becomes 144 fps on a 144 Hz display, with the audio kept in sync.
-Everything stays on your computer (the helper only listens on `127.0.0.1`).
+(Maxine Video Effects SDK, *Video Frame Generation*). FrameBoost sends it the video you are watching as H.264, it returns
+the generated in-between frames, and FrameBoost shows them in real time: YouTube at 24 fps becomes 144 fps on a 144 Hz
+display, with the audio kept in sync. Everything stays on your computer (the helper only listens on `127.0.0.1`).
 
 ```
 page <video> ─▶ FrameBoost (WebCodecs H.264 encode, hardware)
-               ─▶ extension relay iframe ─▶ ws://127.0.0.1:8765/live
+               ─▶ extension relay iframe ─▶ ws://127.0.0.1:<port>/live
                     helper:  ffmpeg decode ─▶ vfgpipe (Maxine VFG, CUDA) ─▶ ffmpeg x264 (zerolatency)
                ◀─ generated frames (H.264) ◀─
 FrameBoost decodes them (WebCodecs) and shows the nearest frame of a slightly delayed timeline;
 the audio is delayed by the same amount so lip-sync is kept.
 ```
 
-## Requirements
-- Windows 10/11 x64 and an NVIDIA **RTX 40/50 series** GPU (Ada/Blackwell), driver **570.65 or newer**
-- `ffmpeg` with `libx264` in `PATH` (`winget install Gyan.FFmpeg`)
-- The **NVIDIA VFX SDK** + Video Frame Generation feature from NGC (free NVIDIA account): see step 2 — not bundled, NVIDIA's
-  license does not allow redistributing it
-- A Chromium browser (Brave, Chrome, Edge…) with the **FrameBoost** extension version that includes the NVIDIA engine
+## For users: install in a few clicks
 
-## Quick start (release download)
-1. Download `frameboost-nvidia-helper-vX.Y.Z-win-x64.zip` from the **Releases** page and extract it anywhere.
-2. Run `powershell -ExecutionPolicy Bypass -File setup.ps1`. It checks the GPU/driver/ffmpeg and tells you which two files to
-   download from NGC (`VFXSDK_windows_1.3.0.0.zip` and `1.3.0.0_lib_windows.zip`). Save them in your Downloads folder, run
-   `setup.ps1` again and it unpacks them into `sdk\`.
-3. Start `start-helper.bat`. It prints a **pairing token** and shows `ready: NVIDIA GeForce RTX … · Maxine VFX SDK 1.3.0.0`.
-   (Windows SmartScreen may warn about the unsigned `.exe`: *More info → Run anyway*.)
-4. In the browser: FrameBoost popup → **Engine** → **NVIDIA**, paste the token → *Save*. The status line reads
-   `NVIDIA GeForce RTX … · SDK … · ready`.
-5. Open a video. The badge on it reads e.g. `24 → 144 fps` and `NVIDIA ×6`. If the helper is not running FrameBoost keeps
-   using its built-in WebGPU engine; if it stops mid-video FrameBoost switches back by itself.
+1. In FrameBoost, open the popup → **Set up NVIDIA Frame Generation** (or **Engine → NVIDIA**). The setup page checks your
+   PC and offers the installer.
+2. Run **`FrameBoost-NVIDIA-Setup.exe`** (also on the [Releases](../../releases/latest) page). A local page opens in your
+   browser and goes through four steps:
+   - **PC check**: RTX 40/50 GPU (Ada/Blackwell) and NVIDIA driver 570.65 or newer.
+   - **FFmpeg**: one button downloads it if it is not on the PC.
+   - **NVIDIA components**: NVIDIA does not allow redistributing its SDK, so you download two files from NVIDIA NGC with
+     your own free NVIDIA account (the installer opens both pages and lists the file names). When they land in your
+     Downloads folder the installer notices them and unpacks them by itself.
+   - **Install**: copies the helper to `%LOCALAPPDATA%\FrameBoostNvidia` (no administrator rights) and registers it as a
+     *Native Messaging* host for Chrome, Brave, Edge and Chromium.
+3. Back in the extension, the setup page turns green by itself. Open any video: the badge reads e.g. `24 → 144 fps`
+   and `NVIDIA ×6`.
 
-The token is stored in `config.json` next to the exe; the status page `http://127.0.0.1:8765` shows it behind a button.
+There is no token to copy: the extension starts the helper when a video needs it (a few hundred milliseconds) and the
+helper quits 15 seconds after the last video stops. If the helper is missing or fails, FrameBoost keeps using its
+built-in WebGPU engine, and switches back by itself if the helper stops mid-video.
+
+Windows SmartScreen may warn about the unsigned `.exe`: *More info → Run anyway*. To remove everything: run the installer
+again and use **Uninstall** (or `FrameBoost-NVIDIA-Setup.exe --uninstall`).
+
+### Requirements
+- Windows 10/11 x64 and an NVIDIA **RTX 40/50 series** GPU, driver **570.65 or newer**
+- A Chromium browser (Brave, Chrome, Edge…) with a FrameBoost version that includes the NVIDIA engine
+
+## Command line
+
+| Command | What it does |
+| --- | --- |
+| `FrameBoost-NVIDIA-Setup.exe` | installer wizard (default) |
+| `--register [--allow <extension id>]` | register the native host again, optionally also for a development extension id |
+| `--unregister` / `--uninstall` | remove the registration / remove everything |
+| `--check` | print what is missing (GPU, driver, FFmpeg, SDK) and exit |
+| `--serve` | run the helper by hand on a fixed port with a long-lived pairing token and a status page (`http://127.0.0.1:8765`); used with the token fields under *Advanced* in the popup |
+| `--version`, `--help` | |
+
+The browser starts the helper itself with `chrome-extension://<id>/` as the only argument (Native Messaging); that mode
+is not meant to be run by hand. The helper reports `ready{port, token}` per start and exits when the browser closes the
+pipe or sends `{"t":"quit"}`. The one-time token and the browser's `Origin` are both checked on the WebSocket.
 
 ## Build from source
-Needs Node.js ≥ 20, Visual Studio 2022 (C++) and CMake ≥ 3.21, plus the SDK Core extracted into `sdk\core\`.
+Needs Node.js 25.5+ (for `node --build-sea`; running from source works with Node 20+), Visual Studio 2022 (C++) and CMake ≥ 3.21, plus the SDK Core extracted into `sdk\core\`.
 ```
 npm install
-powershell -File scripts\build.ps1      # bin\vfgpipe.exe  (uses sdkRoot from config.json, or .\sdk\core\VideoFX)
-start-helper.bat                        # node server\live.mjs
-npm run release                         # single-exe release archive in dist\ (Node SEA + esbuild)
+powershell -File scripts\build.ps1            # bin\vfgpipe.exe (uses sdkRoot from config.json, or .\sdk\core\VideoFX)
+npm run wizard                                # the installer wizard from source
+npm run release                               # dist\FrameBoost-NVIDIA-Setup.exe (Node SEA + esbuild) and its .sha256
+npm run test:native -- dist\FrameBoost-NVIDIA-Setup.exe   # native host checks (source or exe)
 ```
-`scripts/protocol-test.mjs <video> [multiplier] [fps]` plays the extension's part against a running helper.
+`scripts/protocol-test.mjs <video> [multiplier] [fps]` plays the extension's part against a running helper (`--serve`).
 
 ## Security
-Loopback only. The WebSocket accepts only `chrome-extension://…` origins that present the pairing token; web pages cannot
-connect (the browser blocks public sites from reaching `127.0.0.1`, and the helper checks `Origin` and `Host`).
+Loopback only. The WebSocket accepts only the `chrome-extension://…` origin that launched the helper (or, in `--serve`
+mode, an extension that presents the pairing token); web pages cannot connect (the browser blocks public sites from
+reaching `127.0.0.1`, and the helper checks `Origin` and `Host`). The installer page is served on a random port, guarded by
+a one-time token and a `Host` check. The native host manifest allows only the FrameBoost extension ids
+(`allowed_origins`).
 
 ## Notes
 - **x264, not NVENC, for the return stream:** the browser's hardware H.264 decoder holds back a whole DPB (4–16 frames,
@@ -60,6 +84,6 @@ connect (the browser blocks public sites from reaching `127.0.0.1`, and the help
 - Protocol and design: FrameBoost `docs/superpowers/specs/2026-10-05-nvidia-frame-generation-backend-design.md`.
 
 ## Licenses
-This project is MIT licensed (`LICENSE`). `bin/vfgpipe.exe` embeds MIT-licensed glue code from NVIDIA's SDK and
-`frameboost-helper.exe` embeds Node.js and `ws`: see `THIRD_PARTY_NOTICES.md`. The NVIDIA VFX SDK itself is under
-NVIDIA's license and is installed by each user from NGC.
+This project is MIT licensed (`LICENSE`). `vfgpipe.exe` embeds MIT-licensed glue code from NVIDIA's SDK and
+the executable embeds Node.js and `ws`: see `THIRD_PARTY_NOTICES.md`. The NVIDIA VFX SDK itself is under NVIDIA's license
+and is installed by each user from NGC; FFmpeg (GPL build) is downloaded by the installer when the user clicks the button.
