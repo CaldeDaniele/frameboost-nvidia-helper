@@ -1,0 +1,5 @@
+{
+  "port": 8765,
+  "sdkRoot": "C:/path/to/sdk/core/VideoFX",
+  "encoder": "x264"
+}

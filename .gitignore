@@ -1,0 +1,16 @@
+# per-machine: pairing token and SDK location
+config.json
+# NVIDIA SDK is downloaded by the user from NGC (own account); never commit or redistribute it
+sdk/
+bin/
+vfgpipe/build/
+node_modules/
+work/
+# large demo videos
+demo/
+# build output (release archives are attached to GitHub releases)
+dist/
+# machine-specific test launcher (paths of the author)
+start-brave-test.bat
+# logs (may contain the pairing token)
+*.log
