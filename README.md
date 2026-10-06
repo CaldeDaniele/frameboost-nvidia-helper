@@ -16,6 +16,8 @@ the audio is delayed by the same amount so lip-sync is kept.
 
 ## For users: install in a few clicks
 
+**Step-by-step guide with screenshots:** [English](docs/GUIDE.md) · [Italiano](docs/GUIDA.md) · video: [English](docs/guide-en.mp4) · [Italiano](docs/guide-it.mp4)
+
 1. In FrameBoost, open the popup → **Set up NVIDIA Frame Generation** (or **Engine → NVIDIA**). The setup page checks your
    PC and offers the installer.
 2. Run **`FrameBoost-NVIDIA-Setup.exe`** (also on the [Releases](../../releases/latest) page). A local page opens in your
