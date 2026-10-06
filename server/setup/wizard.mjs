@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { INSTALL_DIR, VERSION } from '../lib/config.mjs';
+import { INSTALL_DIR, IS_SEA, ROOT, VERSION } from '../lib/config.mjs';
 import { getAsset } from '../lib/assets.mjs';
 import { checkSystem, findFfmpeg, findExistingSdk, scanForSdkZips, downloadsDir } from '../lib/sysinfo.mjs';
 import { downloadFile, fetchText, sha256File, extractZip, findFile } from '../lib/download.mjs';
@@ -37,7 +37,7 @@ export async function runWizard({ open = true, port = 0, onListening } = {}) {
     installDir: INSTALL_DIR,
     system: { status: 'running', gpu: null, driver: null, computeCap: null, ok: false, reasons: [] },
     ffmpeg: { status: 'idle', path: null, source: null, received: 0, total: 0, error: null },
-    sdk: { status: 'waiting', root: null, version: null, core: null, feature: null, watching: [downloadsDir()], error: null, extractingSince: 0 },
+    sdk: { status: 'waiting', root: null, version: null, core: null, feature: null, wrong: [], watching: [...new Set([downloadsDir(), ...(IS_SEA ? [ROOT] : [])])], error: null, extractingSince: 0 },
     install: { status: 'idle', steps: [], error: null, registered: [], browsers: detectBrowsers(), report: null },
     allowedIds: [],
     log: [],
@@ -108,6 +108,7 @@ export async function runWizard({ open = true, port = 0, onListening } = {}) {
     const s = state.sdk;
     if (s.status === 'ok' || extracting || shuttingDown) return;
     const found = scanForSdkZips(s.watching);
+    s.wrong = found.wrong.map((w) => ({ name: w.name, platform: w.platform }));
     for (const k of ['core', 'feature']) {
       const c = found[k];
       if (!c) { s[k] = null; continue; }

@@ -64,9 +64,10 @@ const S = IT ? {
   ffBtn: 'Scarica FFmpeg', ffDl: 'Scarico…', ffEx: 'Estraggo…', ffFail: 'Scaricamento non riuscito: ', retry: 'Riprova',
   sdkOk: (v) => `Componenti NVIDIA presenti (SDK ${v}).`,
   sdkIntro: 'NVIDIA richiede un account gratuito e l\'accettazione della sua licenza: questo passaggio lo fai tu, il resto è automatico.',
-  sdkSteps: ['Premi <b>Apri le pagine di NVIDIA</b> (si aprono due pagine).', 'Accedi o crea l\'account NVIDIA (gratuito) e accetta la licenza.', 'In ciascuna pagina scegli la versione indicata sotto, apri la scheda <b>File Browser</b>, premi <b>⋮</b> → <b>Download</b>.', 'Torna qui: i file in Download vengono riconosciuti da soli.'],
+  sdkSteps: ['Premi <b>Apri le pagine di NVIDIA</b> (si aprono due pagine).', 'Accedi o crea l\'account NVIDIA (gratuito) e accetta la licenza.', 'In ciascuna pagina scegli la versione indicata sotto (quella <b>windows</b>, non <b>woa</b>), apri la scheda <b>File Browser</b>, premi <b>⋮</b> → <b>Download</b>.', 'Torna qui: i file in Download (e nella cartella di questo programma) vengono riconosciuti da soli.'],
   sdkOpen: 'Apri le pagine di NVIDIA', sdkFiles: 'File richiesti', f1: 'risorsa vfx_sdk_core, versione 1.3.0.0_windows (≈1 GB)', f2: 'modello nvvfxvideoframegeneration, versione 1.3.0.0_lib_windows (≈177 MB)',
   found: 'trovato', downloading: 'in scaricamento…', notFound: 'non ancora trovato', extracting: 'Estraggo i componenti (circa un minuto)…',
+  wrongPlatform: (n) => `Ho trovato file per un'altra piattaforma (${n}): non vanno bene per questo PC. Servono quelli <b>windows</b> (non <b>woa</b>, che è Windows su ARM): riscaricali scegliendo la versione indicata sotto.`,
   otherFolder: 'Hai salvato i file in un\'altra cartella?', folderPh: 'C:\\percorso\\della\\cartella', add: 'Aggiungi',
   installIntro: (d) => `Installo in ${d} (solo per il tuo utente) e collego l'helper al browser.`,
   installBtn: 'Installa', installing: 'Installo…', adv: 'Avanzate: estensione sviluppatore', advHelp: 'ID di una build non pubblicata dell\'estensione (uno per riga), solo per sviluppatori.',
@@ -85,9 +86,10 @@ const S = IT ? {
   ffBtn: 'Download FFmpeg', ffDl: 'Downloading…', ffEx: 'Extracting…', ffFail: 'Download failed: ', retry: 'Try again',
   sdkOk: (v) => `NVIDIA components found (SDK ${v}).`,
   sdkIntro: 'NVIDIA requires a free account and acceptance of its license: you do this part, the rest is automatic.',
-  sdkSteps: ['Click <b>Open the NVIDIA pages</b> (two pages open).', 'Sign in or create your NVIDIA account (free) and accept the license.', 'On each page pick the version shown below, open the <b>File Browser</b> tab, click <b>⋮</b> → <b>Download</b>.', 'Come back here: the files in your Downloads folder are detected automatically.'],
+  sdkSteps: ['Click <b>Open the NVIDIA pages</b> (two pages open).', 'Sign in or create your NVIDIA account (free) and accept the license.', 'On each page pick the version shown below (the <b>windows</b> one, not <b>woa</b>), open the <b>File Browser</b> tab, click <b>⋮</b> → <b>Download</b>.', 'Come back here: the files in your Downloads folder (and in the folder of this program) are detected automatically.'],
   sdkOpen: 'Open the NVIDIA pages', sdkFiles: 'Required files', f1: 'resource vfx_sdk_core, version 1.3.0.0_windows (≈1 GB)', f2: 'model nvvfxvideoframegeneration, version 1.3.0.0_lib_windows (≈177 MB)',
   found: 'found', downloading: 'still downloading…', notFound: 'not found yet', extracting: 'Extracting the components (about a minute)…',
+  wrongPlatform: (n) => `I found files for another platform (${n}): they do not work on this PC. You need the <b>windows</b> ones (not <b>woa</b>, which is Windows on ARM): download them again picking the version shown below.`,
   otherFolder: 'Saved the files in another folder?', folderPh: 'C:\\path\\to\\folder', add: 'Add',
   installIntro: (d) => `I install into ${d} (this user only) and connect the helper to your browser.`,
   installBtn: 'Install', installing: 'Installing…', adv: 'Advanced: developer extension', advHelp: 'IDs of an unpublished build of the extension (one per line), for developers only.',
@@ -109,33 +111,41 @@ $('lead').textContent = S.lead; $('s-log').textContent = S.logT;
 for (const id of ['system', 'ffmpeg', 'sdk', 'install']) $('t-' + id).textContent = S[id];
 let advText = '';   // keep the textarea content across re-renders
 let folderText = '';
+let folderOpen = false, advOpen = false;   // <details> opened by the user: the page is rebuilt every second or two
+// Assigning H['d-sdk'] = html rebuilds the card only when its HTML changed and never while the user types in it.
+const H = new Proxy({}, { set(_, id, html) {
+  const el = $(id), a = document.activeElement;
+  if (a && el.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return true;
+  if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; }
+  return true;
+} });
 
 function render(st) {
   $('ver').textContent = 'v' + st.version;
   // 1 system
   const sy = st.system;
-  if (sy.status === 'running') { badge('system', 'work', S.checking); $('d-system').innerHTML = ''; }
-  else if (sy.ok) { badge('system', 'ok', S.ok); $('d-system').innerHTML = `<p>${esc(S.gpuOk(sy.gpu, sy.driver, sy.computeCap))}</p>`; }
-  else { badge('system', 'err', S.problem); $('d-system').innerHTML = `<p>${esc(sy.gpu || S.noGpu)}</p><ul class="reasons">${sy.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul><button class="ghost" onclick="api('/api/recheck',{})">${S.recheck}</button>`; }
+  if (sy.status === 'running') { badge('system', 'work', S.checking); H['d-system'] = ''; }
+  else if (sy.ok) { badge('system', 'ok', S.ok); H['d-system'] = `<p>${esc(S.gpuOk(sy.gpu, sy.driver, sy.computeCap))}</p>`; }
+  else { badge('system', 'err', S.problem); H['d-system'] = `<p>${esc(sy.gpu || S.noGpu)}</p><ul class="reasons">${sy.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul><button class="ghost" onclick="api('/api/recheck',{})">${S.recheck}</button>`; }
   // 2 ffmpeg
   const f = st.ffmpeg;
-  if (f.status === 'ok') { badge('ffmpeg', 'ok', S.ok); $('d-ffmpeg').innerHTML = `<p class="dim">${esc(S.ffOk(f.source))}</p>`; }
+  if (f.status === 'ok') { badge('ffmpeg', 'ok', S.ok); H['d-ffmpeg'] = `<p class="dim">${esc(S.ffOk(f.source))}</p>`; }
   else if (f.status === 'downloading' || f.status === 'extracting') {
     badge('ffmpeg', 'work', S.working);
     const pct = f.total ? Math.round(100 * f.received / f.total) : 0;
-    $('d-ffmpeg').innerHTML = `<p>${f.status === 'downloading' ? S.ffDl : S.ffEx} ${f.total ? mb(f.received) + ' / ' + mb(f.total) : ''}</p><div class="bar ${f.status === 'extracting' || !f.total ? 'ind' : ''}"><div style="width:${pct}%"></div></div>`;
+    H['d-ffmpeg'] = `<p>${f.status === 'downloading' ? S.ffDl : S.ffEx} ${f.total ? mb(f.received) + ' / ' + mb(f.total) : ''}</p><div class="bar ${f.status === 'extracting' || !f.total ? 'ind' : ''}"><div style="width:${pct}%"></div></div>`;
   } else {
     badge('ffmpeg', f.status === 'failed' ? 'err' : '', f.status === 'failed' ? S.problem : S.missing);
-    $('d-ffmpeg').innerHTML = `<p class="dim">${S.ffNeed}</p>${f.error ? `<p class="reasons">${esc(S.ffFail + f.error)}</p>` : ''}<button onclick="api('/api/ffmpeg/download',{})">${f.status === 'failed' ? S.retry : S.ffBtn}</button>`;
+    H['d-ffmpeg'] = `<p class="dim">${S.ffNeed}</p>${f.error ? `<p class="reasons">${esc(S.ffFail + f.error)}</p>` : ''}<button onclick="api('/api/ffmpeg/download',{})">${f.status === 'failed' ? S.retry : S.ffBtn}</button>`;
   }
   // 3 sdk
   const sd = st.sdk;
-  if (sd.status === 'ok') { badge('sdk', 'ok', S.ok); $('d-sdk').innerHTML = `<p class="dim">${esc(S.sdkOk(sd.version))}</p>`; }
+  if (sd.status === 'ok') { badge('sdk', 'ok', S.ok); H['d-sdk'] = `<p class="dim">${esc(S.sdkOk(sd.version))}</p>`; }
   else {
     const extracting = sd.status === 'extracting';
     badge('sdk', extracting ? 'work' : sd.status === 'failed' ? 'err' : '', extracting ? S.working : sd.status === 'failed' ? S.problem : S.waiting);
     const fileRow = (info, label) => `<div class="file"><span>${info ? (info.complete ? '✅' : '⏳') : '⬜'}</span><span><code>${esc(label)}</code> — ${info ? (info.complete ? S.found + ' (' + mb(info.size) + ')' : S.downloading) : S.notFound}</span></div>`;
-    $('d-sdk').innerHTML = extracting
+    H['d-sdk'] = extracting
       ? `<p>${S.extracting}</p><div class="bar ind"><div></div></div>`
       : `<p class="dim">${S.sdkIntro}</p><ol class="dim">${S.sdkSteps.map((x) => `<li>${x}</li>`).join('')}</ol>
          <button onclick="api('/api/sdk/open-ngc',{})">${S.sdkOpen}</button>
@@ -143,7 +153,8 @@ function render(st) {
          ${fileRow(sd.core, 'VFXSDK_windows_1.3.0.0.zip')}<div class="dim" style="margin:-2px 0 6px 28px">${S.f1}</div>
          ${fileRow(sd.feature, '1.3.0.0_lib_windows.zip')}<div class="dim" style="margin:-2px 0 6px 28px">${S.f2}</div>
          ${sd.error ? `<p class="reasons">${esc(sd.error)}</p>` : ''}
-         <details><summary>${S.otherFolder}</summary><div class="row" style="margin-top:6px"><input type="text" id="folder" placeholder="${esc(S.folderPh)}" value="${esc(folderText)}" oninput="folderText=this.value"><button class="ghost" onclick="addFolder()">${S.add}</button></div></details>`;
+         ${(sd.wrong || []).length ? `<p class="reasons">${S.wrongPlatform(esc(sd.wrong.map((w) => w.name).join(', ')))}</p>` : ''}
+         <details ${folderOpen ? 'open' : ''} ontoggle="folderOpen=this.open"><summary>${S.otherFolder}</summary><div class="row" style="margin-top:6px"><input type="text" id="folder" placeholder="${esc(S.folderPh)}" value="${esc(folderText)}" oninput="folderText=this.value"><button class="ghost" onclick="addFolder()">${S.add}</button></div></details>`;
   }
   // 4 install
   const i = st.install;
@@ -155,11 +166,11 @@ function render(st) {
   else badge('install', '', ready ? S.missing : S.waiting);
   const steps = i.steps.length ? `<ul class="steps">${i.steps.map((s) => `<li>${s.status === 'ok' ? '✅' : s.status === 'fail' ? '❌' : '⏳'} ${esc(S.step[s.name] || s.name)}${s.detail ? ' <span class="dim">— ' + esc(s.detail) + '</span>' : ''}</li>`).join('')}</ul>` : '';
   if (i.status !== 'ok') {
-    $('d-install').innerHTML = `<p class="dim">${esc(S.installIntro(st.installDir))}</p>${ready ? '' : `<p class="dim">${S.needAll}</p>`}
+    H['d-install'] = `<p class="dim">${esc(S.installIntro(st.installDir))}</p>${ready ? '' : `<p class="dim">${S.needAll}</p>`}
       <button id="go" ${ready && i.status !== 'running' ? '' : 'disabled'} onclick="doInstall()">${i.status === 'running' ? S.installing : (i.status === 'fail' ? S.retry : S.installBtn)}</button>
       ${i.error ? `<p class="reasons">${esc(i.error)}</p>` : ''}${steps}
-      <details><summary>${S.adv}</summary><p class="dim">${S.advHelp}</p><textarea id="adv" rows="2" style="width:100%;font:12px ui-monospace,Consolas,monospace;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px" oninput="advText=this.value">${esc(advText)}</textarea></details>`;
-  } else $('d-install').innerHTML = steps;
+      <details ${advOpen ? 'open' : ''} ontoggle="advOpen=this.open"><summary>${S.adv}</summary><p class="dim">${S.advHelp}</p><textarea id="adv" rows="2" style="width:100%;font:12px ui-monospace,Consolas,monospace;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px" oninput="advText=this.value">${esc(advText)}</textarea></details>`;
+  } else H['d-install'] = steps;
   // done
   const done = i.status === 'ok';
   $('c-done').hidden = !done;

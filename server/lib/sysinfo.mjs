@@ -72,6 +72,9 @@ export const downloadsDir = () => path.join(process.env.USERPROFILE || '', 'Down
 
 const CORE_RE = /^VFXSDK_windows_1\.3\.\d+\.\d+( \(\d+\))?\.zip$/i;
 const FEATURE_RE = /^1\.3\.\d+\.\d+_lib_windows( \(\d+\))?\.zip$/i;
+// The same two packages for another platform (NGC offers e.g. "woa" = Windows on Arm next to "windows"): useless on this PC.
+const OTHER_CORE_RE = /^VFXSDK_([a-z0-9]+)_1\.3\.\d+\.\d+( \(\d+\))?\.zip$/i;
+const OTHER_FEATURE_RE = /^1\.3\.\d+\.\d+_lib_([a-z0-9]+)( \(\d+\))?\.zip$/i;
 
 /** Is this a finished zip? (End-of-central-directory record present in the last 64 KB.) */
 export function zipLooksComplete(file) {
@@ -88,13 +91,17 @@ export function zipLooksComplete(file) {
 
 /** Look for the two NGC downloads in the given folders. */
 export function scanForSdkZips(dirs) {
-  const found = { core: null, feature: null };
+  const found = { core: null, feature: null, wrong: [] };
   for (const dir of dirs) {
     let names = [];
     try { names = fs.readdirSync(dir); } catch { continue; }
     for (const n of names) {
       const kind = CORE_RE.test(n) ? 'core' : FEATURE_RE.test(n) ? 'feature' : null;
-      if (!kind) continue;
+      if (!kind) {
+        const other = OTHER_CORE_RE.exec(n) || OTHER_FEATURE_RE.exec(n);
+        if (other && other[1].toLowerCase() !== 'windows') found.wrong.push({ name: n, platform: other[1].toLowerCase(), dir });
+        continue;
+      }
       const p = path.join(dir, n);
       let st; try { st = fs.statSync(p); } catch { continue; }
       const minSize = kind === 'core' ? 500e6 : 50e6;

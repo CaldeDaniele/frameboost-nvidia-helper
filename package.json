@@ -1,6 +1,6 @@
 {
   "name": "frameboost-nvidia-helper",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Local helper that gives the FrameBoost browser extension NVIDIA Maxine Video Frame Generation",
   "type": "module",

@@ -8,7 +8,7 @@ import sea from 'node:sea';
 export const IS_SEA = sea.isSea();
 export const ROOT = IS_SEA ? path.dirname(process.execPath) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const CONFIG_FILE = path.join(ROOT, 'config.json');
-export const VERSION = '0.2.1';
+export const VERSION = '0.2.2';
 
 /** Where the installer puts everything (per user, no admin). */
 export const INSTALL_DIR = path.join(process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '.', 'AppData', 'Local'), 'FrameBoostNvidia');
